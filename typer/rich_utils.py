@@ -255,7 +255,12 @@ def _get_parameter_help(
             and getattr(ctx, "auto_envvar_prefix", None) is not None
             and param.name is not None
         ):
-            envvar = f"{ctx.auto_envvar_prefix}_{param.name.upper()}"
+            # Support both underscore and non-underscore prefixed versions
+            # Maintain backward compatibility by checking underscore version first
+            envvar = [
+                f"{ctx.auto_envvar_prefix}_{param.name.upper()}",
+                f"{ctx.auto_envvar_prefix}{param.name.upper()}"
+            ]
     if envvar is not None:
         var_str = (
             envvar if isinstance(envvar, str) else ", ".join(str(d) for d in envvar)

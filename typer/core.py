@@ -538,7 +538,12 @@ class TyperOption(click.core.Option):
                     and ctx.auto_envvar_prefix is not None
                     and self.name is not None
                 ):
-                    envvar = f"{ctx.auto_envvar_prefix}_{self.name.upper()}"
+                    # Support both underscore and non-underscore prefixed versions
+                    # Maintain backward compatibility by checking underscore version first
+                    envvar = [
+                        f"{ctx.auto_envvar_prefix}_{self.name.upper()}",
+                        f"{ctx.auto_envvar_prefix}{self.name.upper()}"
+                    ]
 
             if envvar is not None:
                 var_str = (
@@ -588,6 +593,36 @@ class TyperOption(click.core.Option):
             help = f"{help}  {extra_str}" if help else f"{extra_str}"
 
         return ("; " if any_prefix_is_slash else " / ").join(rv), help
+
+    def resolve_envvar_value(self, ctx: click.Context) -> Optional[str]:
+        """Override Click's resolve_envvar_value to support both underscore and non-underscore auto env vars."""
+        # First try the parent's implementation (handles explicit envvar)
+        rv = super().resolve_envvar_value(ctx)
+        
+        if rv is not None:
+            return rv
+
+        # Handle auto envvar prefix with both underscore and non-underscore versions
+        if (
+            self.allow_from_autoenv
+            and ctx.auto_envvar_prefix is not None
+            and self.name is not None
+        ):
+            # Try underscore version first (backward compatibility)
+            envvar_underscore = f"{ctx.auto_envvar_prefix}_{self.name.upper()}"
+            rv = os.environ.get(envvar_underscore)
+            
+            if rv:
+                return rv
+            
+            # Try non-underscore version
+            envvar_no_underscore = f"{ctx.auto_envvar_prefix}{self.name.upper()}"
+            rv = os.environ.get(envvar_no_underscore)
+            
+            if rv:
+                return rv
+
+        return None
 
 
 def _typer_format_options(
